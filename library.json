@@ -1,0 +1,13 @@
+{
+  "name": "OneBit",
+  "keywords": "type level bit operations and bit fields",
+  "description": "cross bounds and multi-unit bit fields",
+  "repository":
+  {
+    "type": "git",
+    "url": "https://github.com/InternetOfPins/OneBit",
+    "branch": "master"
+  },
+  "frameworks": "*",
+  "platforms": "*"
+}

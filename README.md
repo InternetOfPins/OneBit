@@ -29,7 +29,7 @@ Bit-fields are discrete and values set/get do not have to take into account its 
 //at global scope
 uint8_t data[]={0,0};
 
-typedef BitField<uint8_t, data, 2> MyBit;
+typedef Bits<uint8_t, uint8_t*, data, 2> MyBit;
 
 MyBit::on();
 MyBit::off();
@@ -44,9 +44,17 @@ MyBit::get();
 //at global scope
 uint8_t data[]={0,0};
 
-typedef BitField<uint8_t,data,0,16,uint16_t> MyField;
+typedef Bits<uint8_t,uint8_t*,data,0,16,uint16_t> MyField;
 
 MyField::set(data,0b1111110000111111);
 MyField::get(data);
 
+```
+
+**hardware port address**
+```c++
+typedef Bits<uint8_t,size_t,0x23,5,1> Led;
+
+Led::begin();
+Led::on();
 ```

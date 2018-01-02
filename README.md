@@ -1,6 +1,6 @@
 # OneBit
 
-**Bit operations and bitfields at type-level**
+**Bit operations and bitfields from type-level-up**
 
 Providing bit fields that can cross boundaries of the base units and that can even span across multiple units.
 
@@ -10,6 +10,7 @@ This way a write operation is atomic and well identified resulting on a single r
 
 Bit-fields are discrete and values set/get do not have to take into account its position inside the unit.
 
+This is type-level only at the index and boundary checking, after that its not only runtime but `inlined`, making your code expert written.
 
 ## Operations
 
@@ -53,8 +54,20 @@ MyField::get(data);
 
 **hardware port address**
 ```c++
-typedef Bits<uint8_t,size_t,0x23,5,1> Led;
+//arduino uno led: port B, bit #5 ------------------------
+//portB input register @0x23
+typedef Bits<uint8_t,size_t,0x23,5> LedIn;
+//portB mode register @0x24
+typedef Bits<uint8_t,size_t,0x24,5> LedMode;
+//portB output register @0x25
+typedef Bits<uint8_t,size_t,0x25,5> LedOut;
 
-Led::begin();
-Led::on();
+void setup() {
+  LedMode::on();//set led pin as output
+}
+
+void loop() {
+  LedOut::set(!LedIn::get());//toggle led
+  delay(500);
+}
 ```

@@ -2,8 +2,6 @@
 
 **Bit operations and bitfields from type-level-up**
 
-**This project is in early development and should only be used by contributing developers. Expect substantial changes to the library API as it evolves. Contributions, ideas and PRs are very welcome.**
-
 Providing bit fields that can cross boundaries of the base units and that can even span across multiple units.
 
 The grouping of bits is important because it will allow us to use the functionality of direct port access on an MCU.

@@ -1,21 +1,23 @@
 /* -*- C++ -*- */
+#include <stdint.h>
 
 /*
 Bit manipulation functions
-we can deal with individual bits with an unit (byte, word,...)
-or with groups of bits (bitPart)
 */
 #ifndef ONE_BIT_H
 #define ONE_BIT_H
 
-  namespace OneBit {
-    typedef uint8_t Byte;
+  // typedef unsigned char uint8_t;
+  constexpr uint8_t log2(uint8_t n) {return n>1?1+log2(n>>1):1;}
 
-    //log base 2
-    template<Byte n>
-    constexpr inline unsigned char _log2() {return n?_log2<(n>>1)>()+1:0;}
-    template<Byte n>
-    constexpr inline unsigned char log2() {return n?_log2<(n>>1)>():0;}
+  namespace OneBit {
+
+    //@Unit - type to be transacted internally
+    //@Type - stored type
+    //@data - the storage
+    //@at - starting point in bits
+    //@sz - size in bits
+    //@Value - type to be transacted externally
 
     //bit operations within a bit field
     //operations get/set, on/off can cross bounds between units
@@ -28,7 +30,7 @@ or with groups of bits (bitPart)
       //bits per unit
       constexpr static inline uint8_t bpu() {return sizeof(Unit)<<3;}
       //address bits per unit
-      constexpr static inline uint8_t abpu() {return log2<bpu()>();}
+      constexpr static inline uint8_t abpu() {return log2(bpu());}
       //max representable value
       constexpr static inline Value ones(uint8_t n=sz) {return (1<<n)-1;}
       //mask
@@ -37,6 +39,8 @@ or with groups of bits (bitPart)
       constexpr static inline uint8_t idx() {return at>>abpu();}
       //bit address inside unit
       constexpr static inline uint8_t pos() {return at&(ones(abpu()));}
+      //domain size-1
+      constexpr static inline Value len() {return (1<<sz)-1;}
 
       // bit field operations get/set, on/off ---------------------------
       enum {

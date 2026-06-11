@@ -1,74 +1,196 @@
-/* -*- C++ -*- */
-#include <stdint.h>
+/**
+ * @file oneBit.h
+ * @author Rui Azevedo (neu-rah) (ruihfazevedo@gmail.com)
+ * @brief HAPI compatible bit manipulation components
+ */
 
-/*
-Bit manipulation functions
-*/
-#ifndef ONE_BIT_H
-#define ONE_BIT_H
+#pragma once
 
-  // typedef unsigned char uint8_t;
-  constexpr uint8_t log2(uint8_t n) {return n>1?1+log2(n>>1):1;}
+#include <hapi/hapi.h>
 
-  namespace OneBit {
+namespace oneBit {
 
-    //@Unit - type to be transacted internally
-    //@Type - stored type
-    //@data - the storage
-    //@at - starting point in bits
-    //@sz - size in bits
-    //@Value - type to be transacted externally
+  // Mask descriptors -----------------------------------------------------------
 
-    //bit operations within a bit field
-    //operations get/set, on/off can cross bounds between units
-    //bit fields size can even exceed unit size
-    #define CROSS_BOUNDS_FIELDS
-
-    template<typename Unit,typename Type,Type data,uint8_t at, uint8_t sz=1,typename Value=Unit>
-    struct Bits {
-      //some usefull functions for bits map math
-      //bits per unit
-      constexpr static inline uint8_t bpu() {return sizeof(Unit)<<3;}
-      //address bits per unit
-      constexpr static inline uint8_t abpu() {return log2(bpu());}
-      //max representable value
-      constexpr static inline Value ones(uint8_t n=sz) {return (1<<n)-1;}
-      //mask
-      constexpr static inline Value mask() {return ones(sz)<<pos();}
-      //unit index
-      constexpr static inline uint8_t idx() {return at>>abpu();}
-      //bit address inside unit
-      constexpr static inline uint8_t pos() {return at&(ones(abpu()));}
-      //domain size-1
-      constexpr static inline Value len() {return (1<<sz)-1;}
-
-      // bit field operations get/set, on/off ---------------------------
-      enum {
-        psz=pos()+sz,
-        delta=bpu()-pos(),
-        crossing=(pos()+sz)>bpu()
-      };
-
-      static inline Value get() {
-        return ((pos()+sz)>bpu()) ?
-          (Bits<Unit,Type,data,at,delta,Value>::get()|((Bits<Unit,Type,data,(uint8_t)(at+delta),(uint8_t)(sz-delta),Value>::get())<<delta)) :
-          (reinterpret_cast<Unit*>(data)[idx()]>>pos())&ones();
-      }
-
-      static inline void set(Value value) {
-        if (crossing) {
-          Bits<Unit,Type,data,at,delta,Value>::set(value);
-          Bits<Unit,Type,data,(uint8_t)(at+delta),(uint8_t)(sz-delta),Value>::set(value>>delta);
-        } else
-          reinterpret_cast<Unit*>(data)[idx()]=(reinterpret_cast<Unit*>(data)[idx()]&~(mask()))|((value<<pos())&(mask()));
-      }
-      //turn bit-field on (all ones)
-      static inline void on() {set(ones(sz));}
-      //turn bit-field off (all zeros)
-      static inline void off() {set(0);}
-      static inline void tog() {set(~get());}
-
-    };
-
+  /// @brief mask from a raw value
+  template<unsigned long _mask>
+  struct MaskVal {
+    template<typename Unit>
+    static constexpr Unit value() noexcept {
+      return static_cast<Unit>(_mask);
+    }
   };
-#endif
+
+  /// @brief mask from bit positions
+  template<int... bits>
+  struct Pins {
+    template<typename Unit>
+    static constexpr Unit value() noexcept {
+      return _fold<Unit, bits...>();
+    }
+  private:
+    template<typename Unit, int b, int... rest>
+    static constexpr Unit _fold() noexcept {
+      return (Unit(1) << b) | _fold<Unit, rest...>();
+    }
+    template<typename Unit, int b>
+    static constexpr Unit _fold() noexcept { return (Unit(1) << b); }
+  };
+
+  // Bits — raw storage component -----------------------------------------------
+  /// @brief owns a reference to a hardware register or variable
+  /// provides raw get/set over the full unit
+  /// mask/field/inversion components narrow or transform above it
+
+  template<typename Unit, Unit& data>
+  struct Bits {
+    template<typename O>
+    struct Part : O {
+      using Base = O;
+      using Base::Base;
+      using Type = Unit;
+
+      static Unit get() noexcept { return data; }
+      static void set(Unit v) noexcept { data = v; }
+
+      // internal chain communication — not public API
+      static void rawClear(Unit bits) noexcept { data &= ~bits; }
+      static void rawSet(Unit bits) noexcept { data |= bits; }
+      static void rawWrite(Unit bits, Unit mask) noexcept {
+        data = (data & ~mask) | (bits & mask);
+      }
+    };
+  };
+
+  // Mask — bit selection -------------------------------------------------------
+  /// @brief select bits via mask descriptor
+  /// Mask<MaskVal<0x0f>> or Mask<Pins<1,2,3>>
+  /// get() returns selected bits — not LSB aligned
+  /// set() writes only selected bits, preserving the rest
+
+  template<typename MaskDesc>
+  struct Mask {
+    template<typename O>
+    struct Part : O {
+      using Base = O;
+      using Base::Base;
+      using Type = typename O::Type;
+
+      static constexpr Type maskBits() noexcept {
+        return MaskDesc::template value<Type>();
+      }
+
+      static Type get() noexcept {
+        return Base::get() & maskBits();
+      }
+      static void set(Type v) noexcept {
+        Base::rawWrite(v & maskBits(), maskBits());
+      }
+    };
+  };
+
+  // BitField — contiguous field, LSB aligned -----------------------------------
+  /// @brief extract a contiguous field at `shift`, `size` bits wide
+  /// get() returns LSB aligned value (0..2^size-1)
+  /// set() takes LSB aligned value, places at correct position
+
+  template<int shift, int size>
+  struct BitField {
+    template<typename O>
+    struct Part : O {
+      using Base = O;
+      using Base::Base;
+      using Type = typename O::Type;
+
+      static constexpr Type fieldMask() noexcept {
+        return ((Type(1) << size) - 1) << shift;
+      }
+
+      static Type get() noexcept {
+        return (Base::get() & fieldMask()) >> shift;
+      }
+      static void set(Type v) noexcept {
+        Base::rawWrite((v << shift) & fieldMask(), fieldMask());
+      }
+    };
+  };
+
+  // Inverted — logical inversion -----------------------------------------------
+  /// @brief invert get/set
+  /// Inverted<>                 — invert all bits
+  /// Inverted<Pins<1,3,5>>      — invert only selected bits
+  /// position in chain determines scope relative to Mask/BitField
+
+  template<typename MaskDesc = void>
+  struct Inverted {
+    template<typename O>
+    struct Part : O {
+      using Base = O;
+      using Base::Base;
+      using Type = typename O::Type;
+
+      static constexpr Type invMask() noexcept {
+        return MaskDesc::template value<Type>();
+      }
+
+      static Type get() noexcept {
+        return (Base::get() & ~invMask()) | (~Base::get() & invMask());
+      }
+      static void set(Type v) noexcept {
+        Base::set((v & ~invMask()) | (~v & invMask()));
+      }
+    };
+  };
+
+  // Inverted<> specialization — invert all
+  template<>
+  struct Inverted<void> {
+    template<typename O>
+    struct Part : O {
+      using Base = O;
+      using Base::Base;
+      using Type = typename O::Type;
+
+      static Type get() noexcept { return ~Base::get(); }
+      static void set(Type v) noexcept { Base::set(~v); }
+    };
+  };
+
+  // MaskedInvert — atomic select + invert -------------------------------------
+  /// @brief select and invert bits atomically — no placement dependency
+  /// MaskedInvert<Pins<1,3,5>> or MaskedInvert<MaskVal<0x0f>>
+  /// selected bits are inverted, unselected bits pass through unchanged
+
+  template<typename MaskDesc>
+  struct MaskedInvert {
+    template<typename O>
+    struct Part : O {
+      using Base = O;
+      using Base::Base;
+      using Type = typename O::Type;
+
+      static constexpr Type invMask() noexcept {
+        return MaskDesc::template value<Type>();
+      }
+
+      static Type get() noexcept {
+        Type raw = Base::get();
+        return (raw & ~invMask()) | (~raw & invMask());
+      }
+      static void set(Type v) noexcept {
+        Base::set((v & ~invMask()) | (~v & invMask()));
+      }
+    };
+  };
+
+  // BitsDef — closes the chain -------------------------------------------------
+
+  template<typename... OO>
+  struct BitsDef
+    : hapi::Chain<OO...>::template Part<hapi::Nil> {
+    using Base =
+      typename hapi::Chain<OO...>::template Part<hapi::Nil>;
+    using Base::Base;
+  };
+
+} // namespace oneBit

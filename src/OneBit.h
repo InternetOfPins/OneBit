@@ -31,10 +31,9 @@ namespace oneBit {
   private:
     template<typename Unit, int b, int... rest>
     static constexpr Unit _fold() noexcept {
-      return (Unit(1) << b) | _fold<Unit, rest...>();
+      if constexpr (sizeof...(rest) == 0) return Unit(1) << b;
+      else return (Unit(1) << b) | _fold<Unit, rest...>();
     }
-    template<typename Unit, int b>
-    static constexpr Unit _fold() noexcept { return (Unit(1) << b); }
   };
 
   // Bits — raw storage component -----------------------------------------------
@@ -191,6 +190,9 @@ namespace oneBit {
     using Base =
       typename hapi::Chain<OO...>::template Part<hapi::Nil>;
     using Base::Base;
+    // API head = Nil (no separate API class); components = OO...
+    // Required by hapi::find<Q> which splits Types::Head as API terminal.
+    using Types = hapi::Chain<hapi::Nil, OO...>;
   };
 
 } // namespace oneBit

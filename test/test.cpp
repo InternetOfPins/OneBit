@@ -1,105 +1,150 @@
+/**
+ * @file test.cpp
+ * @brief OneBit unit tests — current oneBit:: API
+ *
+ * Tests:
+ *   MaskVal, Pins — mask descriptor compile-time values
+ *   Bits          — raw register get/set/rawClear/rawSet
+ *   Mask          — bit-selection overlay
+ *   BitField      — contiguous field, LSB-aligned get/set
+ *   Inverted<>    — full-word inversion
+ *   Inverted<M>   — partial inversion via mask descriptor
+ *   MaskedInvert  — atomic select+invert
+ */
+
 #include <iostream>
-#include <bitset>
+#include <cstdint>
+#include <cassert>
 #include "../src/OneBit.h"
 
-using namespace std;
-using namespace OneBit;
+#ifdef ARDUINO
+  #define cout Serial
+  #define assert(x) do { if(!(x)) { Serial.print("FAIL: "); Serial.println(#x); } } while(0)
+#else
+  using namespace std;
+#endif
 
-uint8_t data[]={0b11101101,0b11101011};
+using namespace oneBit;
 
-int main() {
-  cout<<"Testing OneBit"<<endl;
-  cout<<"test bpu - bits per unit ------------"<<endl;
-  cout<<"byte:"<<(int)Bits<uint8_t,data,0,8>::bpu()<<endl;
-  cout<<"word:"<<(int)Bits<uint16_t,data,0,16>::bpu()<<endl;
-  cout<<"int:"<<(int)Bits<int,data,0,8>::bpu()<<endl;
+inline uint8_t reg8   = 0;
+inline uint16_t reg16 = 0;
 
-  cout<<"address test bpu - bits per unit ------------"<<endl;
-  cout<<"byte:"<<(int)Bits<uint8_t,data,0,8>::abpu()<<endl;
-  cout<<"word:"<<(int)Bits<uint16_t,data,0,16>::abpu()<<endl;
-  cout<<"int:"<<(int)Bits<int,data,0>::abpu()<<endl;
-
-  cout<<"byte ones ------------"<<endl;
-  cout<<"1:"<<bitset<8>(Bits<uint8_t,data,0,1>::ones())<<endl;
-  cout<<"2:"<<bitset<8>(Bits<uint8_t,data,0,2>::ones())<<endl;
-  cout<<"3:"<<bitset<8>(Bits<uint8_t,data,5,3>::ones())<<endl;
-  cout<<"8:"<<bitset<8>(Bits<uint8_t,data,0,8>::ones())<<endl;
-
-  cout<<"word ones ------------"<<endl;
-  cout<<"1:"<<bitset<16>(Bits<uint16_t,data,0,1>::ones())<<endl;
-  cout<<"2:"<<bitset<16>(Bits<uint16_t,data,0,2>::ones())<<endl;
-  cout<<"3:"<<bitset<16>(Bits<uint16_t,data,0,3>::ones())<<endl;
-  cout<<"16:"<<bitset<16>(Bits<uint16_t,data,0,16>::ones())<<endl;
-
-  cout<<"mask ------------"<<endl;
-  cout<<"0,0:"<<bitset<8>(Bits<uint8_t,data,0,0>::mask())<<endl;
-  cout<<"0,1:"<<bitset<8>(Bits<uint8_t,data,0,1>::mask())<<endl;
-  cout<<"0,2:"<<bitset<8>(Bits<uint8_t,data,0,2>::mask())<<endl;
-  cout<<"2,3:"<<bitset<8>(Bits<uint8_t,data,2,3>::mask())<<endl;
-
-  cout<<"idx ------------"<<endl;
-  cout<<"0:"<<(int)Bits<uint8_t,data,0,1>::idx()<<endl;
-  cout<<"7:"<<(int)Bits<uint8_t,data,7,1>::idx()<<endl;
-  cout<<"8:"<<(int)Bits<uint8_t,data,8,1>::idx()<<endl;
-  cout<<"12:"<<(int)Bits<uint8_t,data,12,1>::idx()<<endl;
-
-  cout<<"pos ------------"<<endl;
-  cout<<"0:"<<(int)Bits<uint8_t,data,1,1>::pos()<<endl;
-  cout<<"7:"<<(int)Bits<uint8_t,data,7,1>::pos()<<endl;
-  cout<<"8:"<<(int)Bits<uint8_t,data,8,1>::pos()<<endl;
-  cout<<"12:"<<(int)Bits<uint8_t,data,12,1>::pos()<<endl;
-
-  cout<<"get ------------"<<endl;
-  cout<<"0,3:"<<bitset<8>(Bits<uint8_t,data,0,3>::get())<<endl;
-  cout<<"2,4:"<<bitset<8>(Bits<uint8_t,data,2,4>::get())<<endl;
-  cout<<"8,4:"<<bitset<8>(Bits<uint8_t,data,8,4>::get())<<endl;
-  cout<<"9,4:"<<bitset<8>(Bits<uint8_t,data,9,4>::get())<<endl;
-  cout<<"10,4:"<<bitset<8>(Bits<uint8_t,data,10,4>::get())<<endl;
-  cout<<"11,4:"<<bitset<8>(Bits<uint8_t,data,11,4>::get())<<endl;
-
-  cout<<"set ------------"<<endl;
-  Bits<uint8_t,data,0,3>::set(0);
-  cout<<"0,3=0:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  Bits<uint8_t,data,0,3>::set(5);
-  cout<<"0,3=5:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  Bits<uint8_t,data,4,3>::set(5);
-  cout<<"4,3=5:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  Bits<uint8_t,data,0,8>::set(0);
-  cout<<"0,8=0:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  Bits<uint8_t,data,8,8>::set(0xF0);
-  cout<<"8,8=0xF0:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-
-  // cout<<"on ------------"<<endl;
-  // Bits<uint8_t>::on(data,1,6);
-  // cout<<"1,6:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  // Bits<uint8_t>::on(data,9,6);
-  // cout<<"9,6:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  //
-  // cout<<"off ------------"<<endl;
-  // Bits<uint8_t>::off(data,2,4);
-  // cout<<"2,4:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  // Bits<uint8_t>::off(data,10,4);
-  // cout<<"10,4:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  //
-  // // cout<<"on ------------"<<endl;
-  // // Bits<uint8_t>::on(data,0,6);
-  // // cout<<"0,6:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  //
-  // cout<<"cross-bouds get ------------"<<endl;
-  // cout<<"6,4:"<<bitset<8>(Bits<uint8_t>::get(data,6,4))<<endl;
-  //
-  // cout<<"cross-bouds set ------------"<<endl;
-  // Bits<uint8_t>::set(data,6,4,0xf);
-  // cout<<"6,4=0xf:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  //
-  // cout<<"BitPart ------------"<<endl;
-  // typedef BitPart<uint8_t,0,16,uint16_t> M;
-  // M::set(data,0b1111110000111111);
-  // cout<<"set 0b1111110000111111:"<<bitset<8>(data[1])<<" "<<bitset<8>(data[0])<<endl;
-  // cout<<"get:"<<bitset<16>(M::get(data))<<endl;
-  //
-  // cout<<"BitField ------------"<<endl;
-  // typedef BitField<uint8_t,data,0,16,uint16_t> Md;
-  // cout<<"get:"<<bitset<16>(Md::get())<<endl;
-
+void test_mask_val() {
+  static_assert(MaskVal<0x0F>::value<uint8_t>()  == 0x0F);
+  static_assert(MaskVal<0xFF>::value<uint16_t>() == 0xFF);
+  cout << "MaskVal: ok" << endl;
 }
+
+void test_pins() {
+  static_assert(Pins<0>::value<uint8_t>()     == 0x01);
+  static_assert(Pins<0,1,2>::value<uint8_t>() == 0x07);
+  static_assert(Pins<4,7>::value<uint8_t>()   == 0x90);
+  cout << "Pins: ok" << endl;
+}
+
+void test_bits_raw() {
+  using R = BitsDef<Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0;
+  r.set(0xAB);
+  assert(r.get() == 0xAB);
+  assert(reg8    == 0xAB);
+  r.rawClear(0x0F);
+  assert(reg8 == 0xA0);
+  r.rawSet(0x05);
+  assert(reg8 == 0xA5);
+  cout << "Bits raw get/set/rawClear/rawSet: ok" << endl;
+}
+
+void test_mask() {
+  using R = BitsDef<Mask<MaskVal<0x0F>>, Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0xFF;
+  assert(r.get() == 0x0F);       // masked read: low nibble
+  r.set(0x05);
+  assert(reg8 == 0xF5);           // high nibble preserved
+  r.set(0x0A);
+  assert(reg8 == 0xFA);
+  cout << "Mask<MaskVal>: ok" << endl;
+}
+
+void test_mask_pins() {
+  using R = BitsDef<Mask<Pins<0,1,3>>, Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0xFF;
+  assert(r.get() == 0b00001011);  // bits 0,1,3 selected
+  r.set(0b00001011);
+  assert(reg8 == 0xFF);           // unchanged (already set)
+  r.set(0x00);
+  assert(reg8 == 0b11110100);     // only selected bits cleared
+  cout << "Mask<Pins>: ok" << endl;
+}
+
+void test_bitfield() {
+  // BitField<2, 3>: bits 2..4 (shift=2, size=3), fieldMask = 0b00011100
+  using R = BitsDef<BitField<2, 3>, Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0;
+  r.set(5);                       // 5 << 2 = 0x14
+  assert(r.get() == 5);
+  assert(reg8    == 0x14);
+  reg8 = 0xFF;
+  r.set(0);                       // clear field, preserve surrounding bits
+  assert(r.get() == 0);
+  assert(reg8    == 0b11100011);  // 0xFF & ~0x1C = 0xE3
+  cout << "BitField<2,3>: ok" << endl;
+}
+
+void test_inverted_all() {
+  using R = BitsDef<Inverted<>, Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0x00;
+  assert(r.get() == 0xFF);        // ~0 = 0xFF
+  r.set(0x0F);                    // writes ~0x0F = 0xF0
+  assert(reg8 == 0xF0);
+  cout << "Inverted<> (all bits): ok" << endl;
+}
+
+void test_inverted_partial() {
+  // Inverted<Pins<4,5>>: invert only bits 4 and 5; others pass through
+  using R = BitsDef<Inverted<Pins<4,5>>, Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0b00001111;
+  // get: (reg & ~invMask) | (~reg & invMask)
+  //    = (0x0F & 0xCF)   | (0xF0 & 0x30)
+  //    = 0x0F            | 0x30   = 0x3F
+  assert(r.get() == 0x3F);
+  cout << "Inverted<Pins> (partial): ok" << endl;
+}
+
+void test_masked_invert() {
+  using R = BitsDef<MaskedInvert<Pins<1,3>>, Bits<uint8_t, reg8>>;
+  R r;
+  reg8 = 0b00000000;
+  // get: (0 & ~0x0A) | (~0 & 0x0A) = 0 | 0x0A = 0x0A
+  assert(r.get() == 0x0A);
+  reg8 = 0b11111111;
+  // get: (0xFF & ~0x0A) | (~0xFF & 0x0A) = 0xF5 | 0 = 0xF5
+  assert(r.get() == 0xF5);
+  cout << "MaskedInvert<Pins>: ok" << endl;
+}
+
+void doTests() {
+  test_mask_val();
+  test_pins();
+  test_bits_raw();
+  test_mask();
+  test_mask_pins();
+  test_bitfield();
+  test_inverted_all();
+  test_inverted_partial();
+  test_masked_invert();
+  cout << "all OneBit tests passed" << endl;
+}
+
+#ifdef ARDUINO
+  void setup() { Serial.begin(115200); while(!Serial); doTests(); }
+  void loop() {}
+#else
+  int main() { doTests(); return 0; }
+#endif

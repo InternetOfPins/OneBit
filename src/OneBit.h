@@ -223,8 +223,11 @@ namespace oneBit {
       using Base::Base;
       using Type = typename O::Type;
 
-      static Type get() noexcept { return ~Base::get(); }
+      static Type get()       noexcept { return ~Base::get(); }
       static void set(Type v) noexcept { Base::set(~v); }
+      static void on()        noexcept { Base::off(); }
+      static void off()       noexcept { Base::on(); }
+      static void set(bool b) noexcept { b ? on() : off(); }
     };
   };
 

@@ -20,7 +20,7 @@
   "license": "MIT",
   "homepage": "https://github.com/InternetOfPins/OneBit",
   "dependencies": {
-    "HAPI":"https://github.com/InternetOfPins/HAPI.git@^0.4.3"
+    "HAPI":"https://github.com/InternetOfPins/HAPI.git@^0.5.0"
   },
   "frameworks": "*",
   "platforms": "*"

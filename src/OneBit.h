@@ -129,6 +129,7 @@ namespace oneBit {
         else
           Base::set((Base::get() & ~maskBits()) | (v & maskBits()));
       }
+      static void set(bool b) noexcept { b ? on() : off(); }
       static void on()  noexcept {
         if constexpr (detail::has_bsrr_set_fn<Base>::value)
           Base::bsrr_set(maskBits());              // STM32: atomic BSRR set

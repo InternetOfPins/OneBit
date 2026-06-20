@@ -10,6 +10,49 @@
 
 namespace oneBit {
 
+  namespace detail {
+    template<typename T, typename = void>
+    struct has_pin_fn : std::false_type {};
+    template<typename T>
+    struct has_pin_fn<T, std::void_t<decltype(T::pin())>> : std::true_type {};
+
+    template<typename T, typename = void>
+    struct has_port_fn : std::false_type {};
+    template<typename T>
+    struct has_port_fn<T, std::void_t<decltype(T::port())>> : std::true_type {};
+
+    template<typename T, typename = void>
+    struct has_ddr_fn : std::false_type {};
+    template<typename T>
+    struct has_ddr_fn<T, std::void_t<decltype(T::ddr())>> : std::true_type {};
+
+    // dir_out(Unit) / dir_in(Unit) — masked direction change (AVR: DDR |= mask; STM32: MODER)
+    template<typename T, typename = void>
+    struct has_dir_out_fn : std::false_type {};
+    template<typename T>
+    struct has_dir_out_fn<T, std::void_t<decltype(T::dir_out(std::declval<typename T::Type>()))>>
+      : std::true_type {};
+
+    template<typename T, typename = void>
+    struct has_dir_in_fn : std::false_type {};
+    template<typename T>
+    struct has_dir_in_fn<T, std::void_t<decltype(T::dir_in(std::declval<typename T::Type>()))>>
+      : std::true_type {};
+
+    // bsrr_set(Unit) / bsrr_clr(Unit) — atomic STM32 BSRR operations
+    template<typename T, typename = void>
+    struct has_bsrr_set_fn : std::false_type {};
+    template<typename T>
+    struct has_bsrr_set_fn<T, std::void_t<decltype(T::bsrr_set(std::declval<typename T::Type>()))>>
+      : std::true_type {};
+
+    template<typename T, typename = void>
+    struct has_bsrr_clr_fn : std::false_type {};
+    template<typename T>
+    struct has_bsrr_clr_fn<T, std::void_t<decltype(T::bsrr_clr(std::declval<typename T::Type>()))>>
+      : std::true_type {};
+  }
+
   // Mask descriptors -----------------------------------------------------------
 
   /// @brief mask from a raw value
@@ -51,13 +94,6 @@ namespace oneBit {
 
       static Unit get() noexcept { return data; }
       static void set(Unit v) noexcept { data = v; }
-
-      // internal chain communication — not public API
-      static void rawClear(Unit bits) noexcept { data &= ~bits; }
-      static void rawSet(Unit bits) noexcept { data |= bits; }
-      static void rawWrite(Unit bits, Unit mask) noexcept {
-        data = (data & ~mask) | (bits & mask);
-      }
     };
   };
 
@@ -69,6 +105,8 @@ namespace oneBit {
 
   template<typename MaskDesc>
   struct Mask {
+    using Desc = MaskDesc;  // exposed for compile-time chain inspection (PortAlloc)
+
     template<typename O>
     struct Part : O {
       using Base = O;
@@ -80,10 +118,44 @@ namespace oneBit {
       }
 
       static Type get() noexcept {
-        return Base::get() & maskBits();
+        if constexpr (detail::has_pin_fn<Base>::value)
+          return Base::pin() & maskBits();
+        else
+          return Base::get() & maskBits();
       }
       static void set(Type v) noexcept {
-        Base::rawWrite(v & maskBits(), maskBits());
+        if constexpr (detail::has_port_fn<Base>::value)
+          Base::port((Base::port() & ~maskBits()) | (v & maskBits()));
+        else
+          Base::set((Base::get() & ~maskBits()) | (v & maskBits()));
+      }
+      static void on()  noexcept {
+        if constexpr (detail::has_bsrr_set_fn<Base>::value)
+          Base::bsrr_set(maskBits());              // STM32: atomic BSRR set
+        else if constexpr (detail::has_port_fn<Base>::value)
+          Base::port(Base::port() |  maskBits());  // AVR: ODR/PORT latch RMW
+        else
+          Base::set(Base::get() |  maskBits());    // generic
+      }
+      static void off() noexcept {
+        if constexpr (detail::has_bsrr_clr_fn<Base>::value)
+          Base::bsrr_clr(maskBits());              // STM32: atomic BSRR reset
+        else if constexpr (detail::has_port_fn<Base>::value)
+          Base::port(Base::port() & ~maskBits());
+        else
+          Base::set(Base::get() & ~maskBits());
+      }
+      static void dir_out() noexcept {
+        if constexpr (detail::has_dir_out_fn<Base>::value)
+          Base::dir_out(maskBits());               // masked: AVR DDR|=mask, STM32 MODER
+        else if constexpr (detail::has_ddr_fn<Base>::value)
+          Base::dir(Base::ddr() | maskBits());     // fallback: whole-port DDR write
+      }
+      static void dir_in() noexcept {
+        if constexpr (detail::has_dir_in_fn<Base>::value)
+          Base::dir_in(maskBits());
+        else if constexpr (detail::has_ddr_fn<Base>::value)
+          Base::dir(Base::ddr() & ~maskBits());
       }
     };
   };
@@ -181,6 +253,21 @@ namespace oneBit {
       }
     };
   };
+
+  // extractMask — compile-time chain walk, returns mask value from first Mask<> found ----
+
+  template<typename Unit>
+  constexpr Unit extractMask(hapi::Chain<>) { return Unit(0); }
+
+  template<typename Unit, typename MaskDesc, typename... Rest>
+  constexpr Unit extractMask(hapi::Chain<Mask<MaskDesc>, Rest...>) {
+    return MaskDesc::template value<Unit>();
+  }
+
+  template<typename Unit, typename O, typename... Rest>
+  constexpr Unit extractMask(hapi::Chain<O, Rest...>) {
+    return extractMask<Unit>(hapi::Chain<Rest...>{});
+  }
 
   // BitsDef — closes the chain -------------------------------------------------
 

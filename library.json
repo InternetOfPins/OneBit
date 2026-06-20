@@ -1,6 +1,6 @@
 {
   "name": "OneBit",
-  "version": "0.0.2",
+  "version": "0.1.0",
   "description": "HAPI bit manipulation components: masks, cross-boundary fields and pin-level operations",
   "keywords": "bit, bitfield, gpio, hapi, embedded",
   "repository":

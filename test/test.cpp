@@ -15,7 +15,7 @@
 #include <iostream>
 #include <cstdint>
 #include <cassert>
-#include "../src/OneBit.h"
+#include "../include/oneBit/oneBit.h"
 
 #ifdef ARDUINO
   #define cout Serial

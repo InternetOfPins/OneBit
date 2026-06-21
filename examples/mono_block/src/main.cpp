@@ -15,7 +15,7 @@
 using namespace std;
 
 #include <hapi/hapi.h>
-#include <OneBit.h>
+#include <oneBit/oneBit.h>
 using namespace hapi;
 using namespace oneBit;
 

@@ -275,6 +275,7 @@ namespace oneBit {
 
   // BitsDef — closes the chain -------------------------------------------------
 
+  /// @brief closed bit-component chain; use as a complete pin/port definition
   template<typename... OO>
   struct BitsDef
     : hapi::Chain<OO...>::template Part<hapi::Nil> {

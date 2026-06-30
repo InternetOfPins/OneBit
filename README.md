@@ -1,5 +1,7 @@
 # OneBit
 
+**HAPI Compatibility:** Works with new Check/Apply/ApplyPack API (2026-Q2)
+
 HAPI-compatible bit manipulation components. Compose over any `Unit`-typed storage (hardware registers or RAM variables).
 
 ## Mask descriptors

@@ -1,6 +1,4 @@
-# OneBit
-
-<img src="logo.png" alt="OneBit logo" width="64" height="64">
+# <img src="logo.png" alt="OneBit logo" width="32" height="32"> OneBit
 
 **HAPI Compatibility:** Works with new Check/Apply/ApplyPack API (2026-Q2)
 

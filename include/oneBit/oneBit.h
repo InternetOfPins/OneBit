@@ -80,10 +80,8 @@ namespace oneBit {
   };
 
   // Bits — raw storage component -----------------------------------------------
-  /// @brief owns a reference to a hardware register or variable
-  /// provides raw get/set over the full unit
-  /// mask/field/inversion components narrow or transform above it
-
+  /// @brief owns a reference to a hardware register or variable; provides raw get/set
+  /// over the full unit. Mask/field/inversion components narrow or transform above it.
   template<typename Unit, Unit& data>
   struct Bits {
     template<typename O>
@@ -98,11 +96,8 @@ namespace oneBit {
   };
 
   // Mask — bit selection -------------------------------------------------------
-  /// @brief select bits via mask descriptor
-  /// Mask<MaskVal<0x0f>> or Mask<Pins<1,2,3>>
-  /// get() returns selected bits — not LSB aligned
-  /// set() writes only selected bits, preserving the rest
-
+  /// @brief selects bits via a mask descriptor. get() returns selected bits, not LSB
+  /// aligned; set() writes only selected bits, preserving the rest.
   template<typename MaskDesc>
   struct Mask {
     using Desc = MaskDesc;  // exposed for compile-time chain inspection (PortAlloc)
@@ -162,10 +157,8 @@ namespace oneBit {
   };
 
   // BitField — contiguous field, LSB aligned -----------------------------------
-  /// @brief extract a contiguous field at `shift`, `size` bits wide
-  /// get() returns LSB aligned value (0..2^size-1)
-  /// set() takes LSB aligned value, places at correct position
-
+  /// @brief extracts a contiguous field at `shift`, `size` bits wide; get()/set() use
+  /// LSB-aligned values (0..2^size-1).
   template<int shift, int size>
   struct BitField {
     template<typename O>
@@ -188,11 +181,8 @@ namespace oneBit {
   };
 
   // Inverted — logical inversion -----------------------------------------------
-  /// @brief invert get/set
-  /// Inverted<>                 — invert all bits
-  /// Inverted<Pins<1,3,5>>      — invert only selected bits
-  /// position in chain determines scope relative to Mask/BitField
-
+  /// @brief inverts get/set; Inverted<> inverts all bits, Inverted<MaskDesc> only
+  /// the selected bits. Position in chain determines scope relative to Mask/BitField.
   template<typename MaskDesc = void>
   struct Inverted {
     template<typename O>
@@ -232,10 +222,8 @@ namespace oneBit {
   };
 
   // MaskedInvert — atomic select + invert -------------------------------------
-  /// @brief select and invert bits atomically — no placement dependency
-  /// MaskedInvert<Pins<1,3,5>> or MaskedInvert<MaskVal<0x0f>>
-  /// selected bits are inverted, unselected bits pass through unchanged
-
+  /// @brief selects and inverts bits atomically; selected bits are inverted,
+  /// unselected bits pass through unchanged.
   template<typename MaskDesc>
   struct MaskedInvert {
     template<typename O>

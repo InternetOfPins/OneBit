@@ -9,10 +9,22 @@
 //   6. MaskedInvert<MaskDesc>    — atomic select + invert
 //   7. find<TagIs<Q>> on BitsDef — locate tagged component
 
-#include <cassert>
-#include <cstdint>
-#include <iostream>
-using namespace std;
+#include <stdint.h>  // not <cstdint> -- avr-libc has no C++ wrapper headers
+
+// avr-libc has no libstdc++, so no <cassert>/<iostream> -- same swap
+// HAPI's own examples/virt uses: streamFlow's Serial-backed cout, and a
+// minimal Serial-reporting assert() (avr-libc has no assert() either).
+#ifdef __AVR__
+  #include <streamFlow.h>
+  using namespace StreamFlow;
+  #define cout Serial
+  #define endl "\n"
+  #define assert(cond) do { if(!(cond)) { Serial.println(F("ASSERT FAIL: " #cond)); while(1){} } } while(0)
+#else
+  #include <cassert>
+  #include <iostream>
+  using namespace std;
+#endif
 
 #include <hapi/hapi.h>
 #include <oneBit/oneBit.h>
@@ -135,11 +147,17 @@ void test_find_tagged() {
   using B = BitsDef<Mask<MaskVal<0x0F>>, TaggedBits<uint8_t, reg8>>;
   reg8 = 0;
   B b;
-  // find the tagged bits component through the chain
+  // find verifies the tagged component is present nested in the chain
+  // (query<TagIs<Q>, B::Types>) and hands back a usable reference -- to
+  // the whole chain object, per its own contract (see hapi::find's doc
+  // comment: "verify Q matches, return full object ref"), not a bypass
+  // straight to the tagged sub-layer. So a set() through it still goes
+  // through Mask<MaskVal<0x0F>> above TaggedBits: only the low nibble
+  // is written, the rest preserved -- same as calling b.set() directly.
   static_assert(query<TagIs<HWTag>, B::Types>, "HWTag should be in BitsDef types");
   auto& tb = hapi::find<TagIs<HWTag>>(b);
   tb.set(0xAB);
-  assert(reg8 == 0xAB);
+  assert(reg8 == (0xAB & 0x0F));
   cout << "PASS test_find_tagged\n";
 }
 

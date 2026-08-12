@@ -51,6 +51,15 @@ namespace oneBit {
     template<typename T>
     struct has_bsrr_clr_fn<T, std::void_t<decltype(T::bsrr_clr(std::declval<typename T::Type>()))>>
       : std::true_type {};
+
+    // rawWrite(Unit,Unit) — masked read-modify-write in one call, for a Base that
+    // can offer it atomically/more directly than a separate get()+set() pair
+    template<typename T, typename = void>
+    struct has_rawwrite_fn : std::false_type {};
+    template<typename T>
+    struct has_rawwrite_fn<T, std::void_t<decltype(
+      T::rawWrite(std::declval<typename T::Type>(), std::declval<typename T::Type>()))>>
+      : std::true_type {};
   }
 
   // Mask descriptors -----------------------------------------------------------
@@ -124,7 +133,11 @@ namespace oneBit {
         else
           Base::set((Base::get() & ~maskBits()) | (v & maskBits()));
       }
-      static void set(bool b) noexcept { b ? on() : off(); }
+      // Constrained to exactly bool: an unconstrained overload would tie with
+      // set(Type) on any int literal (int->Type and int->bool are equally-
+      // ranked conversions), making e.g. set(0x05) ambiguous.
+      template<typename B, typename = std::enable_if_t<std::is_same_v<B, bool>>>
+      static void set(B b) noexcept { b ? on() : off(); }
       static void on()  noexcept {
         if constexpr (detail::has_bsrr_set_fn<Base>::value)
           Base::bsrr_set(maskBits());              // STM32: atomic BSRR set
@@ -175,7 +188,10 @@ namespace oneBit {
         return (Base::get() & fieldMask()) >> shift;
       }
       static void set(Type v) noexcept {
-        Base::rawWrite((v << shift) & fieldMask(), fieldMask());
+        if constexpr (detail::has_rawwrite_fn<Base>::value)
+          Base::rawWrite((v << shift) & fieldMask(), fieldMask());
+        else
+          Base::set((Base::get() & ~fieldMask()) | ((v << shift) & fieldMask()));
       }
     };
   };
@@ -217,7 +233,9 @@ namespace oneBit {
       static void set(Type v) noexcept { Base::set(~v); }
       static void on()        noexcept { Base::off(); }
       static void off()       noexcept { Base::on(); }
-      static void set(bool b) noexcept { b ? on() : off(); }
+      // Constrained to exactly bool -- see Mask::Part::set's comment above.
+      template<typename B, typename = std::enable_if_t<std::is_same_v<B, bool>>>
+      static void set(B b) noexcept { b ? on() : off(); }
     };
   };
 

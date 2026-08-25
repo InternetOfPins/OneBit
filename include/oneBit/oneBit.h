@@ -99,7 +99,7 @@ namespace oneBit {
       using Base::Base;
       using Type = Unit;
 
-      static Unit get() noexcept { return data; }
+      [[nodiscard]] static Unit get() noexcept { return data; }
       static void set(Unit v) noexcept { data = v; }
     };
   };
@@ -121,7 +121,7 @@ namespace oneBit {
         return MaskDesc::template value<Type>();
       }
 
-      static Type get() noexcept {
+      [[nodiscard]] static Type get() noexcept {
         if constexpr (detail::has_pin_fn<Base>::value)
           return Base::pin() & maskBits();
         else
@@ -184,7 +184,7 @@ namespace oneBit {
         return ((Type(1) << size) - 1) << shift;
       }
 
-      static Type get() noexcept {
+      [[nodiscard]] static Type get() noexcept {
         return (Base::get() & fieldMask()) >> shift;
       }
       static void set(Type v) noexcept {
@@ -211,7 +211,7 @@ namespace oneBit {
         return MaskDesc::template value<Type>();
       }
 
-      static Type get() noexcept {
+      [[nodiscard]] static Type get() noexcept {
         return (Base::get() & ~invMask()) | (~Base::get() & invMask());
       }
       static void set(Type v) noexcept {
@@ -229,7 +229,7 @@ namespace oneBit {
       using Base::Base;
       using Type = typename O::Type;
 
-      static Type get()       noexcept { return ~Base::get(); }
+      [[nodiscard]] static Type get()       noexcept { return ~Base::get(); }
       static void set(Type v) noexcept { Base::set(~v); }
       static void on()        noexcept { Base::off(); }
       static void off()       noexcept { Base::on(); }
@@ -254,7 +254,7 @@ namespace oneBit {
         return MaskDesc::template value<Type>();
       }
 
-      static Type get() noexcept {
+      [[nodiscard]] static Type get() noexcept {
         Type raw = Base::get();
         return (raw & ~invMask()) | (~raw & invMask());
       }
@@ -267,15 +267,15 @@ namespace oneBit {
   // extractMask — compile-time chain walk, returns mask value from first Mask<> found ----
 
   template<typename Unit>
-  constexpr Unit extractMask(hapi::Chain<>) { return Unit(0); }
+  [[nodiscard]] constexpr Unit extractMask(hapi::Chain<>) { return Unit(0); }
 
   template<typename Unit, typename MaskDesc, typename... Rest>
-  constexpr Unit extractMask(hapi::Chain<Mask<MaskDesc>, Rest...>) {
+  [[nodiscard]] constexpr Unit extractMask(hapi::Chain<Mask<MaskDesc>, Rest...>) {
     return MaskDesc::template value<Unit>();
   }
 
   template<typename Unit, typename O, typename... Rest>
-  constexpr Unit extractMask(hapi::Chain<O, Rest...>) {
+  [[nodiscard]] constexpr Unit extractMask(hapi::Chain<O, Rest...>) {
     return extractMask<Unit>(hapi::Chain<Rest...>{});
   }
 

@@ -101,6 +101,8 @@ namespace oneBit {
 
       [[nodiscard]] static Unit get() noexcept { return data; }
       static void set(Unit v) noexcept { data = v; }
+      static void rawSet(Unit mask) noexcept { data |= mask; }
+      static void rawClear(Unit mask) noexcept { data &= ~mask; }
     };
   };
 
